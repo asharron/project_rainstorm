@@ -5,3 +5,7 @@
 *node_modules
 *package-lock.json
 *yarn.lock
+
+# IDE settings
+.idea
+.vscode
