@@ -1,4 +1,5 @@
 import os
+from raincloud.rainstick.config import app_config
 
 
 class BackupManager:
@@ -14,5 +15,38 @@ class BackupManager:
 
     @staticmethod
     def create_backup_bucket():
-        os.system("rclone mkdir rainstorm:backups")
-        os.system("restic -r rclone:rainstorm:backups init")
+        if not app_config['path_to_password_hash_file']:
+            print("Config is missing the path to password hash file. Aborting backups bucket creation.")
+            return False
+
+        # TODO: Handle repository master key and config already initialized
+        try:
+            os.system("rclone mkdir rainstorm:backups")
+            os.system("restic -r rclone:rainstorm:backups init --password-file {}"
+                      .format(app_config['path_to_password_hash_file']))
+        except OSError as error:
+            print("Could not create backups bucket. Error: ", error)
+            return False
+
+        return True
+
+    @staticmethod
+    def backup_rainstorm_data():
+        # TODO: Find the folders that need backing up
+        # TODO: The folders that need backing up can be toggled per service
+        # TODO: Backup those folders
+        # TODO: Keep track of where those folders go on the FS
+        # TODO: Restore from a backup
+        pass
+
+    @staticmethod
+    def get_user_password_hash():
+        password_hash = ""
+
+        try:
+            with open(app_config.path_to_password_hash_file, "r") as hash_file:
+                password_hash = hash_file.readline()
+        except Exception as error:
+            print("An error occurred while opening the password hash file: ", error)
+
+        return password_hash
