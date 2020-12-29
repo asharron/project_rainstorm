@@ -20,7 +20,6 @@ function Input(props) {
   const submit = () => {
     let field = props.field;
     field.value = value;
-    console.log(authHeader());
     fetch(`/services/${props.service.name}/vars`, {
       method: "post",
       headers: {
