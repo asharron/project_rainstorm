@@ -46,7 +46,7 @@ class Service(object):
         logging.debug("Created settings file for {} service".format(self.name))
 
     def get_rainstorm_settings_file_path(self):
-        return "{}/settings.yml".format(self.__service_folder)
+        return "{}/settings.yml".format(self.__data_folder())
 
     def disable(self):
         command = "{0} down".format(self.__docker_command())

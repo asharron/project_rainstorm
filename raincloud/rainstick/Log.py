@@ -3,6 +3,6 @@ import logging
 class Log:
 
     @staticmethod
-    def get_logger(self):
-        logging.basicConfig(level=loggin.DEBUG)
+    def get_logger():
+        logging.basicConfig(level=logging.DEBUG)
         return logging
