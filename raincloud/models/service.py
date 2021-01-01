@@ -3,7 +3,9 @@ import subprocess
 import docker
 import yaml
 from raincloud.rainstick.config import app_config
+from raincloud.rainstick.Log import Log
 
+logging = Log.get_logger()
 
 class Service(object):
     def __init__(self, name):
@@ -12,6 +14,7 @@ class Service(object):
         self.settings = self.get_settings()
         self.needs_update = self.check_needs_update()
         self.installed = self.__is_installed()
+        self.check_for_rainstorm_settings_file()
 
     @classmethod
     def all(cls):
@@ -33,6 +36,17 @@ class Service(object):
         # set flag since any new variables were applied
         self.set_needs_update(False)
         return output
+
+    def check_for_rainstorm_settings_file(self):
+        settings_file_path = self.get_rainstorm_settings_file_path()
+        if os.path.isfile(settings_file_path):
+            return
+
+        open(settings_file_path, 'a').close()
+        logging.debug("Created settings file for {} service".format(self.name))
+
+    def get_rainstorm_settings_file_path(self):
+        return "{}/settings.yml".format(self.__service_folder)
 
     def disable(self):
         command = "{0} down".format(self.__docker_command())
