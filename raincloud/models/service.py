@@ -38,6 +38,9 @@ class Service(object):
         return output
 
     def check_for_rainstorm_settings_file(self):
+        if not self.__is_installed():
+            return
+
         settings_file_path = self.get_rainstorm_settings_file_path()
         if os.path.isfile(settings_file_path):
             return

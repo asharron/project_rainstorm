@@ -1,5 +1,9 @@
 import os
+import yaml
 from raincloud.rainstick.config import app_config
+from raincloud.rainstick.Log import Log
+
+logger = Log.get_logger()
 
 
 class BackupManager:
@@ -15,6 +19,7 @@ class BackupManager:
 
     @staticmethod
     def create_backup_bucket():
+        # TODO: Backup will be rainstorm's account, so the bucket will be for all users, not just one
         if not app_config['path_to_password_hash_file']:
             print("Config is missing the path to password hash file. Aborting backups bucket creation.")
             return False
@@ -32,12 +37,32 @@ class BackupManager:
 
     @staticmethod
     def backup_rainstorm_data():
-        # TODO: Find the folders that need backing up
-        # TODO: The folders that need backing up can be toggled per service
+        # TODO: Find the folders that need backing up | use the settings.yml file for each service to see if is backupable
+        # TODO: Can toggle backups for each service
         # TODO: Backup those folders
+        # TODO: Ensure the
         # TODO: Keep track of where those folders go on the FS
         # TODO: Restore from a backup
         pass
+
+    @staticmethod
+    def get_backupable_service_paths():
+        backup_enabled_service_data_paths = []
+        services_apps_path = "/mnt/usb/apps"
+        service_names = os.listdir(services_apps_path)
+        for service_name in service_names:
+            service_data_path = "{}/{}".format(services_apps_path, service_name)
+            service_settings_file_path = "{}/settings.yml".format(service_data_path)
+            try:
+                with open(service_settings_file_path, 'r') as settings_file:
+                    service_settings = yaml.safe_load(settings_file)
+                service_has_backup_enabled = service_settings['backup_options']['enabled']
+                if service_has_backup_enabled:
+                    backup_enabled_service_data_paths.append(service_data_path)
+            except Exception as e:
+                logger.warning("Could not open service settings file for {} service".format(service_name))
+
+        return backup_enabled_service_data_paths
 
     @staticmethod
     def get_user_password_hash():
