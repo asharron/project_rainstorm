@@ -5,4 +5,4 @@ from raincloud.rainstick.config import app_config
 # BackupManager.create_rclone_config()
 # BackupManager.create_backup_bucket()
 
-print(BackupManager.get_backupable_service_paths())
+print(BackupManager.consolidate_backupable_files())

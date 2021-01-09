@@ -1,5 +1,7 @@
 import os
 import yaml
+import shutil
+from datetime import datetime
 from raincloud.rainstick.config import app_config
 from raincloud.rainstick.Log import Log
 
@@ -10,6 +12,7 @@ class BackupManager:
     api_key = "13Yqe8kt2jcT11GoLtcKnQxgAbtYu9JLiffZ3dw1w4D3oTH8Ts7Rq7jhQ9YLfGnuW9VbZ9B227cTKkuBURjadmEPW7bLUVHzHdtfHdS"
     access_grant = "14zZEdH4uEZwjbd4fKNHZffoWy5AW8jrFkJF9Sxd5PHH9EtjxEGjX99Zf6u4EGAaCacfHnqyXjJuvBDgATSziN9i4yr6LszLgJcTK5mz5hjuzviBBap4KinhWYpgd3sw1sE4skEVLMQtKkXUVFC8C5pY6gaCXdGyjJApzVikuY9Cs1HAi7gDNSrDH5GNtD2ZU1aYKoKRHwYmpAhMpw7uBg5oB7dbDUA2qFbSB8ajEEmBfHx3PhxpSQdAUnVuB1RDnXEeJjRPUzf8VJKr9P"
     satellite_address = "13EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"
+    root_consolidation_folder_path = "/tmp/project_rainstorm/"
 
     @staticmethod
     def create_rclone_config():
@@ -44,6 +47,38 @@ class BackupManager:
         # TODO: Keep track of where those folders go on the FS
         # TODO: Restore from a backup
         pass
+
+    @staticmethod
+    def consolidate_backupable_files():
+        directories_to_backup = BackupManager.get_backupable_service_paths()
+        backup_date = str(datetime.now())
+        dated_consolidation_folder_path = os.path.join(BackupManager.root_consolidation_folder_path, backup_date)
+        if os.path.isdir(dated_consolidation_folder_path):
+            print("Consolidation folder already exists. Aborting.")
+            return
+        os.makedirs(dated_consolidation_folder_path)
+        for directory_path in directories_to_backup:
+            directory_to_backup_name = directory_path.split("/").pop()
+            consolidation_folder_path = os.path.join(dated_consolidation_folder_path, directory_to_backup_name)
+            print("Fixing file permissions for {}".format(directory_path))
+            BackupManager.fix_file_permissions(directory_path)
+            print("Copying {} to location {}".format(directory_path, consolidation_folder_path))
+            shutil.copytree(directory_path, consolidation_folder_path)
+        print("Consolidation finished")
+
+    @staticmethod
+    def get_available_backups():
+        # TODO: List available backups for a user in the backups bucket
+        pass
+
+    @staticmethod
+    def restore_from_backup(restore_id):
+        # TODO: Restore from a backup id
+        pass
+
+    @staticmethod
+    def fix_file_permissions(directory_path):
+        os.system("sudo chown -R drop:drop {}".format(directory_path))
 
     @staticmethod
     def get_backupable_service_paths():
