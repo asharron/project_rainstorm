@@ -29,8 +29,8 @@ class BackupManager:
 
         # TODO: Handle repository master key and config already initialized
         try:
-            os.system("rclone mkdir rainstorm:backups")
-            os.system("restic -r rclone:rainstorm:backups init --password-file {}"
+            os.system("rclone mkdir rainstorm:backupstest")
+            os.system("restic -r rclone:rainstorm:backupstest init --password-file {}"
                       .format(app_config['path_to_password_hash_file']))
         except OSError as error:
             print("Could not create backups bucket. Error: ", error)
@@ -46,16 +46,26 @@ class BackupManager:
         # TODO: Ensure the
         # TODO: Keep track of where those folders go on the FS
         # TODO: Restore from a backup
-        pass
+        consolidation_folder_path = BackupManager.consolidate_backupable_files()
+        backup_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+        # TODO: Have some kind of user identifier as a parent folder of the backup time
+        backup_command = "restic -r rclone:rainstorm:backupstest backup {} --password-file {}".format(consolidation_folder_path, app_config['path_to_password_hash_file'])
+        print("Performing backup of data with command " + backup_command)
+        os.system(backup_command)
+        print("Backup successfully completed")
+
+    @staticmethod
+    def get_repository_snapshots():
+        os.system("restic -r rclone:rainstorm:backupstest ls --password-file {}".format(app_config['path_to_password_hash_file']))
 
     @staticmethod
     def consolidate_backupable_files():
         directories_to_backup = BackupManager.get_backupable_service_paths()
-        backup_date = str(datetime.now())
+        backup_date = datetime.now().strftime("%Y%m%d-%H%M%S")
         dated_consolidation_folder_path = os.path.join(BackupManager.root_consolidation_folder_path, backup_date)
         if os.path.isdir(dated_consolidation_folder_path):
             print("Consolidation folder already exists. Aborting.")
-            return
+            return ""
         os.makedirs(dated_consolidation_folder_path)
         for directory_path in directories_to_backup:
             directory_to_backup_name = directory_path.split("/").pop()
@@ -65,6 +75,7 @@ class BackupManager:
             print("Copying {} to location {}".format(directory_path, consolidation_folder_path))
             shutil.copytree(directory_path, consolidation_folder_path)
         print("Consolidation finished")
+        return dated_consolidation_folder_path
 
     @staticmethod
     def get_available_backups():
@@ -78,7 +89,8 @@ class BackupManager:
 
     @staticmethod
     def fix_file_permissions(directory_path):
-        os.system("sudo chown -R drop:drop {}".format(directory_path))
+        print("Ignoring fixing file permissions")
+        # os.system("sudo chown -R drop:drop {}".format(directory_path))
 
     @staticmethod
     def get_backupable_service_paths():
