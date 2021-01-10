@@ -8,4 +8,5 @@ from raincloud.rainstick.config import app_config
 
 #print(BackupManager.consolidate_backupable_files())
 # BackupManager.backup_rainstorm_data()
-BackupManager.get_repository_snapshots()
+# print(BackupManager.get_available_backups())
+BackupManager.restore_from_backup('39239fcd')

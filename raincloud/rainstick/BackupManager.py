@@ -1,6 +1,8 @@
 import os
 import yaml
 import shutil
+import subprocess
+import re
 from datetime import datetime
 from raincloud.rainstick.config import app_config
 from raincloud.rainstick.Log import Log
@@ -40,14 +42,9 @@ class BackupManager:
 
     @staticmethod
     def backup_rainstorm_data():
-        # TODO: Find the folders that need backing up | use the settings.yml file for each service to see if is backupable
-        # TODO: Can toggle backups for each service
-        # TODO: Backup those folders
-        # TODO: Ensure the
         # TODO: Keep track of where those folders go on the FS
         # TODO: Restore from a backup
         consolidation_folder_path = BackupManager.consolidate_backupable_files()
-        backup_date = datetime.now().strftime("%Y%m%d-%H%M%S")
         # TODO: Have some kind of user identifier as a parent folder of the backup time
         backup_command = "restic -r rclone:rainstorm:backupstest backup {} --password-file {}".format(consolidation_folder_path, app_config['path_to_password_hash_file'])
         print("Performing backup of data with command " + backup_command)
@@ -56,7 +53,7 @@ class BackupManager:
 
     @staticmethod
     def get_repository_snapshots():
-        os.system("restic -r rclone:rainstorm:backupstest ls --password-file {}".format(app_config['path_to_password_hash_file']))
+        os.system("restic -r rclone:rainstorm:backupstest snapshots --password-file {}".format(app_config['path_to_password_hash_file']))
 
     @staticmethod
     def consolidate_backupable_files():
@@ -79,13 +76,31 @@ class BackupManager:
 
     @staticmethod
     def get_available_backups():
-        # TODO: List available backups for a user in the backups bucket
-        pass
+        command = "restic -r rclone:rainstorm:backupstest snapshots --password-file {}"\
+            .format(app_config['path_to_password_hash_file'])
+        formatted_command = command.split(" ")
+        completed_process = subprocess.run(formatted_command, capture_output=True)
+        formatted_output = completed_process.stdout.decode("utf-8")
+        output_as_list = formatted_output.split("\n")
+        output_length = len(output_as_list)
+        snapshots_as_strings = output_as_list[2:output_length-3]
+        snapshots = []
+        for snapshot_string in snapshots_as_strings:
+            snapshot_id = re.search("^[a-zA-Z0-9]{8}", snapshot_string).group()
+            snapshot_time = re.search("\d+-\d+-\d+\s\d+:\d+:\d+", snapshot_string).group()
+            snapshot_info = {
+                "snapshot_id": snapshot_id,
+                "snapshot_time": snapshot_time
+            }
+            snapshots.append(snapshot_info)
+        return snapshots
 
     @staticmethod
-    def restore_from_backup(restore_id):
-        # TODO: Restore from a backup id
-        pass
+    def restore_from_backup(snapshot_id):
+        restore_command = "restic --repo rclone:rainstorm:backupstest restore {} --target / --password-file {}"\
+            .format(snapshot_id, app_config['path_to_password_hash_file'])
+        os.system(restore_command)
+        print("Restored snapshot successfully")
 
     @staticmethod
     def fix_file_permissions(directory_path):
