@@ -60,9 +60,12 @@ class BackupManager:
         directories_to_backup = BackupManager.get_backupable_service_paths()
         backup_date = datetime.now().strftime("%Y%m%d-%H%M%S")
         dated_consolidation_folder_path = os.path.join(BackupManager.root_consolidation_folder_path, backup_date)
+
         if os.path.isdir(dated_consolidation_folder_path):
             print("Consolidation folder already exists. Aborting.")
             return ""
+
+        backup_directories_fs_mapping = {}
         os.makedirs(dated_consolidation_folder_path)
         for directory_path in directories_to_backup:
             directory_to_backup_name = directory_path.split("/").pop()
@@ -71,6 +74,11 @@ class BackupManager:
             BackupManager.fix_file_permissions(directory_path)
             print("Copying {} to location {}".format(directory_path, consolidation_folder_path))
             shutil.copytree(directory_path, consolidation_folder_path)
+            backup_directories_fs_mapping[consolidation_folder_path] = directory_path
+        backup_fs_mapping_path = os.path.join(dated_consolidation_folder_path, "/fs_restore_mappings.yml")
+        # TODO: Do error handling here
+        with open(backup_fs_mapping_path, 'w') as f:
+            yaml.dump(backup_directories_fs_mapping, f)
         print("Consolidation finished")
         return dated_consolidation_folder_path
 
