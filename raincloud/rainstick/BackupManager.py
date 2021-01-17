@@ -23,19 +23,23 @@ class BackupManager:
         os.system(backup_command)
 
     @staticmethod
-    def create_restic_repo():
-        # TODO: Backup will be rainstorm's account, so the bucket will be for all users, not just one
+    def create_restic_repo_for_service(service_name):
         if not app_config['path_to_password_hash_file']:
             print("Config is missing the path to password hash file. Aborting backups bucket creation.")
             return False
 
-        # TODO: Handle repository master key and config already initialized
-        try:
-            os.system("restic -r rclone:rainstorm:backupstest/jimmy init --password-file {}"
-                      .format(app_config['path_to_password_hash_file']))
-        except OSError as error:
-            print("Could not create backups bucket. Error: ", error)
-            return False
+        return_code = os.system("restic -r rclone:rainstorm:backupstest/{} snapshots --password-file {}"
+                  .format(service_name, app_config['path_to_password_hash_file']))
+
+        if return_code == 0:
+            print("Repo for service already exists")
+            return
+
+
+        return_status = os.system("restic -r rclone:rainstorm:backupstest/{} init --password-file {}"
+                  .format(service_name, app_config['path_to_password_hash_file']))
+        if not return_status == 0:
+            print("Could not create restic repo for {}", service_name)
 
         return True
 
@@ -51,11 +55,10 @@ class BackupManager:
 
     @staticmethod
     def backup_rainstorm_data():
-        # TODO: Keep track of where those folders go on the FS
-        # TODO: Restore from a backup
+        # TODO: Backup for each service restic repo instead of the whole folder
         consolidation_folder_path = BackupManager.consolidate_backupable_files()
-        # TODO: Have some kind of user identifier as a parent folder of the backup time
-        backup_command = "restic -r rclone:rainstorm:backupstest backup {} --password-file {}".format(consolidation_folder_path, app_config['path_to_password_hash_file'])
+        backup_command = "restic -r rclone:rainstorm:backupstest backup {} --password-file {}"\
+            .format(consolidation_folder_path, app_config['path_to_password_hash_file'])
         print("Performing backup of data with command " + backup_command)
         os.system(backup_command)
         print("Backup successfully completed")

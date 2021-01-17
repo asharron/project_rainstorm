@@ -6,7 +6,8 @@ from raincloud.rainstick.config import app_config
 # BackupManager.create_restic_repo()
 # print(app_config['path_to_password_hash_file'])
 
-print(BackupManager.consolidate_backupable_files())
+# print(BackupManager.consolidate_backupable_files())
+BackupManager.create_restic_repo_for_service("plex")
 # BackupManager.backup_rainstorm_data()
 # print(BackupManager.get_backupable_service_paths())
 # print(BackupManager.get_available_backups())
