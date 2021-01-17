@@ -54,13 +54,15 @@ class BackupManager:
 
 
     @staticmethod
-    def backup_rainstorm_data():
-        # TODO: Backup for each service restic repo instead of the whole folder
-        consolidation_folder_path = BackupManager.consolidate_backupable_files()
-        backup_command = "restic -r rclone:rainstorm:backupstest backup {} --password-file {}"\
-            .format(consolidation_folder_path, app_config['path_to_password_hash_file'])
-        print("Performing backup of data with command " + backup_command)
-        os.system(backup_command)
+    def backup_all_services():
+        consolidated_services_mapping = BackupManager.consolidate_backupable_files()
+        for service_name, consolidated_service_path in consolidated_services_mapping.items():
+            BackupManager.create_restic_repo_for_service(service_name)
+            backup_command = "restic -r rclone:rainstorm:backupstest/{} backup {} --password-file {}"\
+                .format(service_name, consolidated_service_path, app_config['path_to_password_hash_file'])
+            print("Performing backup of data with command " + backup_command)
+            os.system(backup_command)
+            print("Backed up {} successfully".format(service_name))
         print("Backup successfully completed")
 
     @staticmethod
@@ -69,6 +71,7 @@ class BackupManager:
 
     @staticmethod
     def consolidate_backupable_files():
+        consolidated_services_mapping = {}
         directories_to_backup = BackupManager.get_backupable_service_paths()
         backup_date = datetime.now().strftime("%Y%m%d-%H%M%S")
         dated_consolidation_folder_path = os.path.join(BackupManager.root_consolidation_folder_path, backup_date)
@@ -91,12 +94,15 @@ class BackupManager:
             print("Copying {} to location {}".format(service_file_storage_paths.file_storage_path, file_storage_consolidation_folder_path))
             shutil.copytree(service_file_storage_paths.file_storage_path, file_storage_consolidation_folder_path)
             backup_directories_fs_mapping[service_name] = dict(service_file_storage_paths._asdict())
+            consolidated_services_mapping[service_name] = consolidation_folder_path
         backup_fs_mapping_path = os.path.join(dated_consolidation_folder_path, "fs_restore_mappings.yml")
-        # TODO: Do error handling here
-        with open(backup_fs_mapping_path, 'w') as f:
-            yaml.dump(backup_directories_fs_mapping, f)
+        try:
+            with open(backup_fs_mapping_path, 'w') as f:
+                yaml.dump(backup_directories_fs_mapping, f)
+        except OSError as error:
+            print("Could not write the fs mapping file ", error)
         print("Consolidation finished")
-        return dated_consolidation_folder_path
+        return consolidated_services_mapping
 
     @staticmethod
     def get_available_backups():
