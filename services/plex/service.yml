@@ -9,4 +9,4 @@ var_fields:
   - field: input
     label: Media Directory
     name: MEDIA_DIR
-    default: "/mnt/usb/files"
+    default: "/mnt/usb/files/plex"

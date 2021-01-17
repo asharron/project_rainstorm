@@ -9,4 +9,4 @@ var_fields:
   - name: MEDIA_DIR
     label: Media Directory
     field: input
-    default: "/mnt/usb/files"
+    default: "/mnt/usb/files/jellyfin"

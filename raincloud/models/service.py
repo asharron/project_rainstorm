@@ -35,6 +35,7 @@ class Service(object):
         self.set_status()
         # set flag since any new variables were applied
         self.set_needs_update(False)
+        self.__create_file_storage_folder()
         return output
 
     def check_for_rainstorm_settings_file(self):
@@ -144,6 +145,10 @@ class Service(object):
 
         return os.path.join(app_config['path_to_service_data'], self.name)
 
+    def __file_storage_folder(self):
+
+        return os.path.join(app_config['path_to_file_storage'], self.name)
+
     def __is_installed(self):
 
         return os.path.isdir(self.__data_folder())
@@ -172,6 +177,13 @@ class Service(object):
             for name in dict.keys():
                 assignment = "{0}={1}\n".format(name, dict[name])
                 f.write(assignment)
+
+    def __create_file_storage_folder(self):
+        try:
+            if not os.path.exists(self.__file_storage_folder()):
+                os.makedirs(self.__file_storage_folder())
+        except OSError as error:
+            print("Failed to make file storage folder for service: {} {}".format(self.name, error))
 
     def __service_folder(self):
         return os.path.join(Service.__services_folder(), self.name)
