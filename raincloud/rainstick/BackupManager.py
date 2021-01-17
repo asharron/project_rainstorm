@@ -3,11 +3,13 @@ import yaml
 import shutil
 import subprocess
 import re
+from collections import namedtuple
 from datetime import datetime
 from raincloud.rainstick.config import app_config
 from raincloud.rainstick.Log import Log
 
 logger = Log.get_logger()
+ServiceFileStoragePaths = namedtuple("ServiceFileStoragePaths", "service_data_path file_storage_path")
 
 
 class BackupManager:
@@ -74,14 +76,18 @@ class BackupManager:
 
         backup_directories_fs_mapping = {}
         os.makedirs(dated_consolidation_folder_path)
-        for directory_path in directories_to_backup:
-            directory_to_backup_name = directory_path.split("/").pop()
-            consolidation_folder_path = os.path.join(dated_consolidation_folder_path, directory_to_backup_name)
-            print("Fixing file permissions for {}".format(directory_path))
-            BackupManager.fix_file_permissions(directory_path)
-            print("Copying {} to location {}".format(directory_path, consolidation_folder_path))
-            shutil.copytree(directory_path, consolidation_folder_path)
-            backup_directories_fs_mapping[consolidation_folder_path] = directory_path
+        for service_name, service_file_storage_paths in directories_to_backup.items():
+            consolidation_folder_path = os.path.join(dated_consolidation_folder_path, service_name)
+            service_data_consolidation_folder_path = os.path.join(consolidation_folder_path, "service_data")
+            file_storage_consolidation_folder_path = os.path.join(consolidation_folder_path, "file_storage")
+
+            BackupManager.fix_file_permissions(service_file_storage_paths.service_data_path)
+
+            print("Copying {} to location {}".format(service_file_storage_paths.service_data_path, service_data_consolidation_folder_path))
+            shutil.copytree(service_file_storage_paths.service_data_path, service_data_consolidation_folder_path)
+            print("Copying {} to location {}".format(service_file_storage_paths.file_storage_path, file_storage_consolidation_folder_path))
+            shutil.copytree(service_file_storage_paths.file_storage_path, file_storage_consolidation_folder_path)
+            backup_directories_fs_mapping[service_name] = dict(service_file_storage_paths._asdict())
         backup_fs_mapping_path = os.path.join(dated_consolidation_folder_path, "fs_restore_mappings.yml")
         # TODO: Do error handling here
         with open(backup_fs_mapping_path, 'w') as f:
@@ -123,12 +129,13 @@ class BackupManager:
 
     @staticmethod
     def fix_file_permissions(directory_path):
-        print("Ignoring fixing file permissions")
-        # os.system("sudo chown -R drop:drop {}".format(directory_path))
+        # print("Ignoring fixing file permissions")
+        print("Fixing file permissions for {}".format(directory_path))
+        os.system("sudo chown -R drop:drop {}".format(directory_path))
 
     @staticmethod
     def get_backupable_service_paths():
-        backup_enabled_service_data_paths = []
+        backup_enabled_service_data_paths = {}
         services_apps_path = "/mnt/usb/apps"
         service_names = os.listdir(services_apps_path)
         for service_name in service_names:
@@ -139,9 +146,11 @@ class BackupManager:
                     service_settings = yaml.safe_load(settings_file)
                 service_has_backup_enabled = service_settings['backup_options']['enabled']
                 if service_has_backup_enabled:
-                    backup_enabled_service_data_paths.append(service_data_path)
-            except Exception as e:
-                logger.warning("Could not open service settings file for {} service".format(service_name))
+                    file_storage_path = "/mnt/usb/files/" + service_name
+                    service_storage_file_paths = ServiceFileStoragePaths(service_data_path, file_storage_path)
+                    backup_enabled_service_data_paths[service_name]  = service_storage_file_paths
+            except OSError as e:
+                logger.warning("Could not open service settings file for {} service: {}".format(service_name, e))
 
         return backup_enabled_service_data_paths
 
