@@ -55,7 +55,7 @@ class BackupManager:
 
     @staticmethod
     def backup_all_services():
-        consolidated_services_mapping = BackupManager.consolidate_backupable_files()
+        consolidated_services_mapping = BackupManager.consolidate_all_backup_enabled_service_files()
         for service_name, consolidated_service_path in consolidated_services_mapping.items():
             BackupManager.create_restic_repo_for_service(service_name)
             backup_command = "restic -r rclone:rainstorm:backupstest/{} backup {} --password-file {}"\
@@ -66,11 +66,12 @@ class BackupManager:
         print("Backup successfully completed")
 
     @staticmethod
-    def get_repository_snapshots():
-        os.system("restic -r rclone:rainstorm:backupstest snapshots --password-file {}".format(app_config['path_to_password_hash_file']))
+    def get_repository_snapshots_for_service(service_name):
+        os.system("restic -r rclone:rainstorm:backupstest/{} snapshots --password-file {}"
+                  .format(service_name, app_config['path_to_password_hash_file']))
 
     @staticmethod
-    def consolidate_backupable_files():
+    def consolidate_all_backup_enabled_service_files():
         consolidated_services_mapping = {}
         directories_to_backup = BackupManager.get_backupable_service_paths()
         backup_date = datetime.now().strftime("%Y%m%d-%H%M%S")
