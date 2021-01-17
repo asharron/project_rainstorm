@@ -11,9 +11,7 @@ logger = Log.get_logger()
 
 
 class BackupManager:
-    api_key = "13Yqe8kt2jcT11GoLtcKnQxgAbtYu9JLiffZ3dw1w4D3oTH8Ts7Rq7jhQ9YLfGnuW9VbZ9B227cTKkuBURjadmEPW7bLUVHzHdtfHdS"
     access_grant = "14zZEdH4uEZwjbd4fKNHZffoWy5AW8jrFkJF9Sxd5PHH9EtjxEGjX99Zf6u4EGAaCacfHnqyXjJuvBDgATSziN9i4yr6LszLgJcTK5mz5hjuzviBBap4KinhWYpgd3sw1sE4skEVLMQtKkXUVFC8C5pY6gaCXdGyjJApzVikuY9Cs1HAi7gDNSrDH5GNtD2ZU1aYKoKRHwYmpAhMpw7uBg5oB7dbDUA2qFbSB8ajEEmBfHx3PhxpSQdAUnVuB1RDnXEeJjRPUzf8VJKr9P"
-    satellite_address = "13EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us-central-1.tardigrade.io:7777"
     root_consolidation_folder_path = "/tmp/project_rainstorm/"
 
     @staticmethod
@@ -23,7 +21,7 @@ class BackupManager:
         os.system(backup_command)
 
     @staticmethod
-    def create_backup_bucket():
+    def create_restic_repo():
         # TODO: Backup will be rainstorm's account, so the bucket will be for all users, not just one
         if not app_config['path_to_password_hash_file']:
             print("Config is missing the path to password hash file. Aborting backups bucket creation.")
@@ -31,14 +29,23 @@ class BackupManager:
 
         # TODO: Handle repository master key and config already initialized
         try:
-            os.system("rclone mkdir rainstorm:backupstest")
-            os.system("restic -r rclone:rainstorm:backupstest init --password-file {}"
+            os.system("restic -r rclone:rainstorm:backupstest/jimmy init --password-file {}"
                       .format(app_config['path_to_password_hash_file']))
         except OSError as error:
             print("Could not create backups bucket. Error: ", error)
             return False
 
         return True
+
+    @staticmethod
+    def create_root_bucket():
+        try:
+            os.system("rclone mkdir rainstorm:backupstest")
+        except OSError as error:
+            print("Could not create backups bucket. Error: ", error)
+            return False
+        return True
+
 
     @staticmethod
     def backup_rainstorm_data():
@@ -75,7 +82,7 @@ class BackupManager:
             print("Copying {} to location {}".format(directory_path, consolidation_folder_path))
             shutil.copytree(directory_path, consolidation_folder_path)
             backup_directories_fs_mapping[consolidation_folder_path] = directory_path
-        backup_fs_mapping_path = os.path.join(dated_consolidation_folder_path, "/fs_restore_mappings.yml")
+        backup_fs_mapping_path = os.path.join(dated_consolidation_folder_path, "fs_restore_mappings.yml")
         # TODO: Do error handling here
         with open(backup_fs_mapping_path, 'w') as f:
             yaml.dump(backup_directories_fs_mapping, f)
@@ -84,10 +91,14 @@ class BackupManager:
 
     @staticmethod
     def get_available_backups():
-        command = "restic -r rclone:rainstorm:backupstest snapshots --password-file {}"\
+        command = "restic -r rclone:rainstorm:backupstest2 snapshots --password-file {}"\
             .format(app_config['path_to_password_hash_file'])
         formatted_command = command.split(" ")
         completed_process = subprocess.run(formatted_command, capture_output=True)
+        error_output = completed_process.stderr.decode("utf-8")
+        if "Fatal: unable to open config file: <config/> does not exist" in error_output:
+            print("Restic repo does not exist")
+            return []
         formatted_output = completed_process.stdout.decode("utf-8")
         output_as_list = formatted_output.split("\n")
         output_length = len(output_as_list)
