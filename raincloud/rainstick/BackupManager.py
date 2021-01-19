@@ -135,11 +135,20 @@ class BackupManager:
         return snapshots
 
     @staticmethod
-    def restore_from_backup(snapshot_id):
+    def restore_service_from_backup(service_name, snapshot_id):
+        service_to_restore = Service(service_name)
+        print("Preparing to restore service {}. Disabling the container temporarily.")
+        service_to_restore.disable()
         restore_command = "restic --repo rclone:rainstorm:backupstest restore {} --target / --password-file {}"\
             .format(snapshot_id, app_config['path_to_password_hash_file'])
-        os.system(restore_command)
-        print("Restored snapshot successfully")
+        return_code = os.system(restore_command)
+        if not return_code == 0:
+            print("Was unable to restore the service successfully from backup. Snapshot unable to be restored")
+            print("Re-enabling service {}".format(service_name))
+            service_to_restore.enable()
+            return
+        print("Restored snapshot successfully. Copying files to correct location...")
+
 
     @staticmethod
     def fix_file_permissions(directory_path):
