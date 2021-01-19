@@ -5,6 +5,8 @@ import subprocess
 import re
 from collections import namedtuple
 from datetime import datetime
+
+from raincloud.models.service import Service
 from raincloud.rainstick.config import app_config
 from raincloud.rainstick.Log import Log
 
@@ -66,11 +68,6 @@ class BackupManager:
         print("Backup successfully completed")
 
     @staticmethod
-    def get_repository_snapshots_for_service(service_name):
-        os.system("restic -r rclone:rainstorm:backupstest/{} snapshots --password-file {}"
-                  .format(service_name, app_config['path_to_password_hash_file']))
-
-    @staticmethod
     def consolidate_all_backup_enabled_service_files():
         consolidated_services_mapping = {}
         directories_to_backup = BackupManager.get_backupable_service_paths()
@@ -106,14 +103,21 @@ class BackupManager:
         return consolidated_services_mapping
 
     @staticmethod
-    def get_available_backups():
-        command = "restic -r rclone:rainstorm:backupstest2 snapshots --password-file {}"\
-            .format(app_config['path_to_password_hash_file'])
+    def get_available_backups_for_all_services():
+        all_backup_snapshots = {}
+        for service in Service.all():
+            service_backup_snapshots = BackupManager.get_available_backups_for_service(service.name)
+            all_backup_snapshots[service.name] = service_backup_snapshots
+        return all_backup_snapshots
+
+    @staticmethod
+    def get_available_backups_for_service(service_name):
+        command = "restic -r rclone:rainstorm:backupstest/{} snapshots --password-file {}"\
+            .format(service_name, app_config['path_to_password_hash_file'])
         formatted_command = command.split(" ")
         completed_process = subprocess.run(formatted_command, capture_output=True)
-        error_output = completed_process.stderr.decode("utf-8")
-        if "Fatal: unable to open config file: <config/> does not exist" in error_output:
-            print("Restic repo does not exist")
+        if not completed_process.returncode == 0:
+            print("Restic repo for service {} does not exist".format(service_name))
             return []
         formatted_output = completed_process.stdout.decode("utf-8")
         output_as_list = formatted_output.split("\n")
