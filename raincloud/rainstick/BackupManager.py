@@ -166,16 +166,16 @@ class BackupManager:
         file_storage_path = os.path.join(app_config["path_to_file_storage"], service_name)
 
         print("Removing {}".format(service_data_path))
-        shutil.rmtree(service_data_path)
+        shutil.rmtree(service_data_path, ignore_errors=True)
 
         print("Copying {} to location {}".format(restored_service_data_path, service_data_path))
         shutil.copytree(restored_service_data_path, service_data_path)
 
         print("Removing {}".format(file_storage_path))
-        shutil.rmtree(file_storage_path)
+        shutil.rmtree(file_storage_path, ignore_errors=True)
 
         print("Copying {} to location {}".format(restored_file_storage_path, file_storage_path))
-        shutil.copytree(restored_file_storage_path, file_storage_path, dirs_exist_ok=True)
+        shutil.copytree(restored_file_storage_path, file_storage_path)
 
         print("Restore complete. Re-enabling service {}".format(service_name))
         service_to_restore.enable()
