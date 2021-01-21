@@ -16,7 +16,10 @@ ServiceFileStoragePaths = namedtuple("ServiceFileStoragePaths", "service_data_pa
 
 class BackupManager:
     access_grant = "14zZEdH4uEZwjbd4fKNHZffoWy5AW8jrFkJF9Sxd5PHH9EtjxEGjX99Zf6u4EGAaCacfHnqyXjJuvBDgATSziN9i4yr6LszLgJcTK5mz5hjuzviBBap4KinhWYpgd3sw1sE4skEVLMQtKkXUVFC8C5pY6gaCXdGyjJApzVikuY9Cs1HAi7gDNSrDH5GNtD2ZU1aYKoKRHwYmpAhMpw7uBg5oB7dbDUA2qFbSB8ajEEmBfHx3PhxpSQdAUnVuB1RDnXEeJjRPUzf8VJKr9P"
-    root_consolidation_folder_path = "/tmp/project_rainstorm/"
+    ROOT_CONSOLIDATION_FOLDER_PATH = "/tmp/project_rainstorm/"
+    SERVICE_DATA_FOLDER_NAME = "service_data"
+    FILE_STORAGE_FOLDER_NAME = "file_storage"
+
 
     @staticmethod
     def create_rclone_config():
@@ -72,7 +75,7 @@ class BackupManager:
         consolidated_services_mapping = {}
         directories_to_backup = BackupManager.get_backupable_service_paths()
         backup_date = datetime.now().strftime("%Y%m%d-%H%M%S")
-        dated_consolidation_folder_path = os.path.join(BackupManager.root_consolidation_folder_path, backup_date)
+        dated_consolidation_folder_path = os.path.join(BackupManager.ROOT_CONSOLIDATION_FOLDER_PATH, backup_date)
 
         if os.path.isdir(dated_consolidation_folder_path):
             print("Consolidation folder already exists. Aborting.")
@@ -82,8 +85,10 @@ class BackupManager:
         os.makedirs(dated_consolidation_folder_path)
         for service_name, service_file_storage_paths in directories_to_backup.items():
             consolidation_folder_path = os.path.join(dated_consolidation_folder_path, service_name)
-            service_data_consolidation_folder_path = os.path.join(consolidation_folder_path, "service_data")
-            file_storage_consolidation_folder_path = os.path.join(consolidation_folder_path, "file_storage")
+            service_data_consolidation_folder_path = os.path.join(consolidation_folder_path,
+                                                                  BackupManager.SERVICE_DATA_FOLDER_NAME)
+            file_storage_consolidation_folder_path = os.path.join(consolidation_folder_path,
+                                                                  BackupManager.FILE_STORAGE_FOLDER_NAME)
 
             BackupManager.fix_file_permissions(service_file_storage_paths.service_data_path)
 
@@ -139,16 +144,41 @@ class BackupManager:
         service_to_restore = Service(service_name)
         print("Preparing to restore service {}. Disabling the container temporarily.")
         service_to_restore.disable()
-        restore_command = "restic --repo rclone:rainstorm:backupstest restore {} --target / --password-file {}"\
-            .format(snapshot_id, app_config['path_to_password_hash_file'])
-        return_code = os.system(restore_command)
-        if not return_code == 0:
+        restore_command = "restic -r rclone:rainstorm:backupstest/{} restore {} --target / --password-file {}"\
+            .format(service_name, snapshot_id, app_config['path_to_password_hash_file'])
+        restore_command_formatted = restore_command.split(" ")
+        completed_restore_process = subprocess.run(restore_command_formatted, capture_output=True)
+        if not completed_restore_process.returncode == 0:
             print("Was unable to restore the service successfully from backup. Snapshot unable to be restored")
             print("Re-enabling service {}".format(service_name))
             service_to_restore.enable()
             return
         print("Restored snapshot successfully. Copying files to correct location...")
+        formatted_process_output = completed_restore_process.stdout.decode("utf-8")
+        opening_bracket_idx = formatted_process_output.find("[")
+        closing_bracket_idx = formatted_process_output.find("]")
+        restored_folder_file_path = formatted_process_output[opening_bracket_idx+1:closing_bracket_idx]
+        print("Restored folder file path: ", restored_folder_file_path)
+        restored_service_data_path = os.path.join(restored_folder_file_path, BackupManager.SERVICE_DATA_FOLDER_NAME)
+        restored_file_storage_path = os.path.join(restored_folder_file_path, BackupManager.FILE_STORAGE_FOLDER_NAME)
 
+        service_data_path = os.path.join(app_config["path_to_service_data"], service_name)
+        file_storage_path = os.path.join(app_config["path_to_file_storage"], service_name)
+
+        print("Removing {}".format(service_data_path))
+        shutil.rmtree(service_data_path)
+
+        print("Copying {} to location {}".format(restored_service_data_path, service_data_path))
+        shutil.copytree(restored_service_data_path, service_data_path)
+
+        print("Removing {}".format(file_storage_path))
+        shutil.rmtree(file_storage_path)
+
+        print("Copying {} to location {}".format(restored_file_storage_path, file_storage_path))
+        shutil.copytree(restored_file_storage_path, file_storage_path, dirs_exist_ok=True)
+
+        print("Restore complete. Re-enabling service {}".format(service_name))
+        service_to_restore.enable()
 
     @staticmethod
     def fix_file_permissions(directory_path):
