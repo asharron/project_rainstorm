@@ -14,4 +14,5 @@ from raincloud.rainstick.config import app_config
 # BackupManager.restore_from_backup('39239fcd')
 # print(BackupManager.get_available_backups_for_all_services())
 # print(BackupManager.get_available_backups_for_service('transmission'))
-BackupManager.restore_service_from_backup('transmission', 'fe8b3a89')
+# BackupManager.restore_service_from_backup('transmission', 'fe8b3a89')
+BackupManager.backup_service("transmission")

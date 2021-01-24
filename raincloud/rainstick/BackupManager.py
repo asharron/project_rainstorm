@@ -13,18 +13,17 @@ from raincloud.rainstick.Log import Log
 logger = Log.get_logger()
 ServiceFileStoragePaths = namedtuple("ServiceFileStoragePaths", "service_data_path file_storage_path")
 
-
+# TODO: Convert print statements to debug and warn
 class BackupManager:
-    access_grant = "14zZEdH4uEZwjbd4fKNHZffoWy5AW8jrFkJF9Sxd5PHH9EtjxEGjX99Zf6u4EGAaCacfHnqyXjJuvBDgATSziN9i4yr6LszLgJcTK5mz5hjuzviBBap4KinhWYpgd3sw1sE4skEVLMQtKkXUVFC8C5pY6gaCXdGyjJApzVikuY9Cs1HAi7gDNSrDH5GNtD2ZU1aYKoKRHwYmpAhMpw7uBg5oB7dbDUA2qFbSB8ajEEmBfHx3PhxpSQdAUnVuB1RDnXEeJjRPUzf8VJKr9P"
+    ACCESS_GRANT = "14zZEdH4uEZwjbd4fKNHZffoWy5AW8jrFkJF9Sxd5PHH9EtjxEGjX99Zf6u4EGAaCacfHnqyXjJuvBDgATSziN9i4yr6LszLgJcTK5mz5hjuzviBBap4KinhWYpgd3sw1sE4skEVLMQtKkXUVFC8C5pY6gaCXdGyjJApzVikuY9Cs1HAi7gDNSrDH5GNtD2ZU1aYKoKRHwYmpAhMpw7uBg5oB7dbDUA2qFbSB8ajEEmBfHx3PhxpSQdAUnVuB1RDnXEeJjRPUzf8VJKr9P"
     ROOT_CONSOLIDATION_FOLDER_PATH = "/tmp/project_rainstorm/"
     SERVICE_DATA_FOLDER_NAME = "service_data"
     FILE_STORAGE_FOLDER_NAME = "file_storage"
 
-
     @staticmethod
     def create_rclone_config():
         backup_command = "rclone config create rainstorm tardigrade access_grant {}" \
-            .format(BackupManager.access_grant)
+            .format(BackupManager.ACCESS_GRANT)
         os.system(backup_command)
 
     @staticmethod
@@ -57,7 +56,6 @@ class BackupManager:
             return False
         return True
 
-
     @staticmethod
     def backup_all_services():
         consolidated_services_mapping = BackupManager.consolidate_all_backup_enabled_service_files()
@@ -69,6 +67,26 @@ class BackupManager:
             os.system(backup_command)
             print("Backed up {} successfully".format(service_name))
         print("Backup successfully completed")
+
+    # TODO: Backup a single service
+    @staticmethod
+    def backup_service(service_name):
+        service_to_backup = Service(service_name)
+        service_app_settings = service_to_backup.app_settings
+        if not service_app_settings['backup_options'] or not service_app_settings['backup_options']['enabled']:
+            logger.warn("Backups not enabled for service {}".format(service_name))
+            return
+
+        # TODO: Move files to own folder and back it up!!!
+        consolidated_service_folder = BackupManager.consolidate_service_backup_enabled_files(service_to_backup)
+        BackupManager.create_restic_repo_for_service(service_to_backup.name)
+        backup_command = "restic -r rclone:rainstorm:backupstest/{} backup {} --password-file {}" \
+            .format(service_name, consolidated_service_folder, app_config['path_to_password_hash_file'])
+        returncode = os.system(backup_command)
+
+        if not returncode == 0:
+            raise BackupError("Could not backup the service {} using restic".format(service_name))
+        logger.info("Successfully backed up ", service_name)
 
     @staticmethod
     def consolidate_all_backup_enabled_service_files():
@@ -106,6 +124,28 @@ class BackupManager:
             print("Could not write the fs mapping file ", error)
         print("Consolidation finished")
         return consolidated_services_mapping
+
+    @staticmethod
+    def consolidate_service_backup_enabled_files(service: Service) -> str:
+        logger.info("Consolidating app and file storage for {}".format(service.name))
+        backup_date = datetime.now().strftime("%Y%m%d-%H%M%S")
+        dated_consolidation_folder_path = os.path.join(BackupManager.ROOT_CONSOLIDATION_FOLDER_PATH, backup_date)
+        dated_service_consolidation_path = os.path.join(dated_consolidation_folder_path, service.name)
+
+        service_data_consolidation_folder_path = os.path.join(dated_service_consolidation_path,
+                                                              BackupManager.SERVICE_DATA_FOLDER_NAME)
+        file_storage_consolidation_folder_path = os.path.join(dated_service_consolidation_path,
+                                                              BackupManager.FILE_STORAGE_FOLDER_NAME)
+
+        try:
+            os.makedirs(dated_service_consolidation_path, exist_ok=True)
+            shutil.copytree(service.data_folder_path, service_data_consolidation_folder_path)
+            shutil.copytree(service.file_storage_folder_path, file_storage_consolidation_folder_path)
+        except OSError as e:
+            logger.warn("Could not consolidate files for {}: {}".format(service.name, e))
+            raise BackupError("Could not consolidate files for ".format(service.name))
+        logger.info("File consolidation complete for ".format(service.name))
+        return dated_service_consolidation_path
 
     @staticmethod
     def get_available_backups_for_all_services():
@@ -218,3 +258,6 @@ class BackupManager:
             print("An error occurred while opening the password hash file: ", error)
 
         return password_hash
+
+class BackupError(Exception):
+    pass

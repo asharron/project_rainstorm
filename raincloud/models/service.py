@@ -10,11 +10,13 @@ logging = Log.get_logger()
 class Service(object):
     def __init__(self, name):
         self.name = name
+        self.data_folder_path = self.__data_folder()
+        self.file_storage_folder_path = self.__file_storage_folder()
         self.status = self.get_status()
         self.settings = self.get_settings()
+        self.app_settings = self.__get_app_settings()
         self.needs_update = self.check_needs_update()
         self.installed = self.__is_installed()
-        self.check_for_rainstorm_settings_file()
 
     @classmethod
     def all(cls):
@@ -38,18 +40,29 @@ class Service(object):
         self.__create_file_storage_folder()
         return output
 
-    def check_for_rainstorm_settings_file(self):
+    def __get_app_settings(self):
         if not self.__is_installed():
-            return
+            return {}
 
-        settings_file_path = self.get_rainstorm_settings_file_path()
-        if os.path.isfile(settings_file_path):
-            return
+        app_settings_file_path = self.get_app_settings_file_path()
+        if not os.path.isfile(app_settings_file_path):
+            self.create_app_settings_file(app_settings_file_path)
+            return {}
 
-        open(settings_file_path, 'a').close()
-        logging.debug("Created settings file for {} service".format(self.name))
+        try:
+            with open(app_settings_file_path) as file:
+                return yaml.safe_load(file)
+        except OSError as e:
+            logging.warn("Unable to open app settings file for service ", self.name, e)
+            return {}
 
-    def get_rainstorm_settings_file_path(self):
+    def create_app_settings_file(self, settings_file_path):
+        default_settings = {"backup_options": {"enabled": True}}
+        with open(settings_file_path, 'w').close() as file:
+            yaml.safe_dump(default_settings, file)
+        logging.info("Created settings file for {} service with default settings".format(self.name))
+
+    def get_app_settings_file_path(self):
         return "{}/settings.yml".format(self.__data_folder())
 
     def disable(self):
@@ -99,8 +112,6 @@ class Service(object):
     def get_update_file(self):
         return "{0}/.update".format(self.__data_folder())
 
-
-
     def update_env(self, variable=False):
          # update the .env with new default values
          # preserve existing values
@@ -138,19 +149,15 @@ class Service(object):
     @classmethod
     def __services_folder(cls):
         base_dir = os.getcwd()
-
         return os.path.join(base_dir, 'services')
 
     def __data_folder(self):
-
         return os.path.join(app_config['path_to_service_data'], self.name)
 
     def __file_storage_folder(self):
-
         return os.path.join(app_config['path_to_file_storage'], self.name)
 
     def __is_installed(self):
-
         return os.path.isdir(self.__data_folder())
 
     def __run_command(self, command):
