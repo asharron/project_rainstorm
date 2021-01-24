@@ -5,8 +5,8 @@ services:
     image: linuxserver/transmission:latest
     container_name: transmission
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${UID}
+      - PGID=${GID}
       - TZ=Europe/London
       - TRANSMISSION_WEB_HOME=/combustion-release/ #optional
       - USER=${USER}

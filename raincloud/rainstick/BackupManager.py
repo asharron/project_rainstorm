@@ -86,7 +86,7 @@ class BackupManager:
 
         if not returncode == 0:
             raise BackupError("Could not backup the service {} using restic".format(service_name))
-        logger.info("Successfully backed up ", service_name)
+        logger.info("Successfully backed up {}".format(service_name))
 
     @staticmethod
     def consolidate_all_backup_enabled_service_files():
@@ -144,7 +144,7 @@ class BackupManager:
         except OSError as e:
             logger.warn("Could not consolidate files for {}: {}".format(service.name, e))
             raise BackupError("Could not consolidate files for ".format(service.name))
-        logger.info("File consolidation complete for ".format(service.name))
+        logger.info("File consolidation complete for {}".format(service.name))
         return dated_service_consolidation_path
 
     @staticmethod

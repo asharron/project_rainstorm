@@ -7,6 +7,7 @@ from raincloud.rainstick.Log import Log
 
 logging = Log.get_logger()
 
+
 class Service(object):
     def __init__(self, name):
         self.name = name
@@ -24,7 +25,7 @@ class Service(object):
 
     @classmethod
     def all_folders(cls):
-        return [ f.name for f in os.scandir(cls.__services_folder()) if f.is_dir() ]
+        return [f.name for f in os.scandir(cls.__services_folder()) if f.is_dir()]
 
     def enable(self):
         if not self.installed:
@@ -58,9 +59,10 @@ class Service(object):
 
     def create_app_settings_file(self, settings_file_path):
         default_settings = {"backup_options": {"enabled": True}}
-        with open(settings_file_path, 'w').close() as file:
+        with open(settings_file_path, 'w') as file:
             yaml.safe_dump(default_settings, file)
         logging.info("Created settings file for {} service with default settings".format(self.name))
+        return default_settings
 
     def get_app_settings_file_path(self):
         return "{}/settings.yml".format(self.__data_folder())
@@ -113,16 +115,16 @@ class Service(object):
         return "{0}/.update".format(self.__data_folder())
 
     def update_env(self, variable=False):
-         # update the .env with new default values
-         # preserve existing values
-         # replace values of variable if passed
-         env = self.__get_env_dict()
-         if variable:
-             env[variable['name']] = variable['value']
-         for var in self.settings['var_fields']:
-             if var['name'] not in env:
-                 env[var['name']] = var['default']
-         self.__save_env(env)
+        # update the .env with new default values
+        # preserve existing values
+        # replace values of variable if passed
+        env = self.__get_env_dict()
+        if variable:
+            env[variable['name']] = variable['value']
+        for var in self.settings['var_fields']:
+            if var['name'] not in env:
+                env[var['name']] = var['default']
+        self.__save_env(env)
 
     def update_var(self, variable):
         if self.status == 'enabled':
@@ -196,4 +198,8 @@ class Service(object):
         return os.path.join(Service.__services_folder(), self.name)
 
     def __docker_command(self):
-        return "docker-compose -f {0}/docker-compose.yml --env-file {1}/.env ".format(self.__service_folder(), self.__data_folder())
+        current_user_id = os.geteuid()
+        current_group_id = os.getegid()
+        uid_and_gid_export = "UID={} GID={}".format(current_user_id, current_group_id)
+        return "{} docker-compose -f {}/docker-compose.yml --env-file {}/.env " \
+            .format(uid_and_gid_export, self.__service_folder(), self.__data_folder())
